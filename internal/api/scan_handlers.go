@@ -36,7 +36,12 @@ func (s *Server) startScan(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(writer, http.StatusCreated, trace)
+	record, err := s.services.Evidence.Ingest(trace)
+	if err != nil {
+		writeError(writer, http.StatusConflict, err)
+		return
+	}
+	writeJSON(writer, http.StatusCreated, record)
 }
 
 func (s *Server) getSpan(writer http.ResponseWriter, request *http.Request) {

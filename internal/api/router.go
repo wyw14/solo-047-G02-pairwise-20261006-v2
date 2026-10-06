@@ -36,6 +36,8 @@ func NewServer(services *Services) *Server {
 		r.Get("/permits/{id}", server.getPermit)
 		r.Post("/repairs/{id}/acceptance", server.addAcceptanceProof)
 		r.Get("/repairs/{id}/acceptance", server.getAcceptance)
+		r.Get("/repairs/{id}/evidence", server.repairEvidence)
+		r.Get("/spans/{id}/evidence", server.spanEvidence)
 		r.Post("/repeaters/{id}/telemetry", server.ingestTelemetry)
 		r.Get("/repeaters/{id}/telemetry", server.repeaterTelemetry)
 		r.Post("/repeaters/{id}/ramp", server.rampRepeater)
@@ -46,6 +48,7 @@ func NewServer(services *Services) *Server {
 		r.Post("/spans/{id}/wet-plant-tests", server.startWetPlantTest)
 		r.Post("/wet-plant-tests/{id}", server.finishWetPlantTest)
 		r.Post("/spans/{id}/incidents/{incidentID}", server.updateIncident)
+		r.Get("/spans/{id}/incidents/{incidentID}/evidence", server.incidentEvidence)
 	})
 	server.router = router
 	return server

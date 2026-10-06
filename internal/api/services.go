@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wyw14/cry-103/internal/evidence"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -30,6 +31,7 @@ type Services struct {
 	Repeaters           map[string]*repeater.Repeater
 	Topology            *topology.Registry
 	OTDR                *otdr.SessionService
+	Evidence            *evidence.Ledger
 	Switchovers         *switchover.SessionService
 	Permits             *repair.PermitService
 	Receipts            *landing.ReceiptRegistry

@@ -21,6 +21,20 @@ func (s *Server) addAcceptanceProof(writer http.ResponseWriter, request *http.Re
 		ID: s.services.IDs.New("proof"), Direction: input.Direction, Passed: input.Passed,
 		LossDB: input.LossDB, Message: input.Message, MeasuredAt: s.services.Clock.Now().UTC(),
 	}
+	// Anchor the directional proof to the generation currently in service
+	// before the acceptance decision, so a failing proof is retained as
+	// evidence too. Proofs from other generations live in other chains and can
+	// never complete this one.
+	snapshot, topologyErr := s.services.Topology.Snapshot(spanID)
+	if topologyErr != nil {
+		writeError(writer, http.StatusConflict, topologyErr)
+		return
+	}
+	chain, evidenceErr := s.services.Evidence.AddProof(spanID, snapshot.Generation, proof)
+	if evidenceErr != nil {
+		writeError(writer, http.StatusConflict, evidenceErr)
+		return
+	}
 	result, err := s.services.Acceptance.AddProof(request.Context(), input.AcceptanceID, spanID, proof)
 	if err != nil {
 		writeError(writer, http.StatusConflict, err)
@@ -34,7 +48,7 @@ func (s *Server) addAcceptanceProof(writer http.ResponseWriter, request *http.Re
 	if result.Restored {
 		status = http.StatusOK
 	}
-	writeJSON(writer, status, result)
+	writeJSON(writer, status, map[string]any{"acceptance": result, "evidence_chain": chain})
 }
 
 func (s *Server) getAcceptance(writer http.ResponseWriter, request *http.Request) {

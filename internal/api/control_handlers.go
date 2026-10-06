@@ -98,10 +98,48 @@ func (s *Server) updateIncident(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	current := s.services.Incident(incidentID, spanID)
+	topologySnapshot, snapshotErr := s.services.Topology.Snapshot(spanID)
+	if snapshotErr != nil {
+		writeError(writer, http.StatusNotFound, snapshotErr)
+		return
+	}
+	// Once bound, the incident keeps its original generation even after the
+	// topology switches; late peer evidence is accepted only against that
+	// pinned generation. Before binding, pin to the generation now in service.
+	generation := topologySnapshot.Generation
+	if boundSpan, boundGeneration, isBound := s.services.Evidence.IncidentBinding(incidentID); isBound {
+		if boundSpan != spanID {
+			writeJSON(writer, http.StatusConflict, ErrorResponse{Error: "incident already belongs to a different span"})
+			return
+		}
+		generation = boundGeneration
+	}
 	switch input.Action {
 	case "local-complete":
+		if err := s.services.Evidence.BindIncident(incidentID, spanID, generation); err != nil {
+			writeError(writer, http.StatusConflict, err)
+			return
+		}
 		s.services.Classifier.LocalComplete(current, input.RequiresPeer, s.services.Clock.Now())
 	case "peer-evidence":
+		// The incident stays pinned to the generation active when local
+		// diagnostics completed; a topology switch in between must not let
+		// post-switch scans contaminate the incident's evidence.
+		if err := s.services.Evidence.BindIncident(incidentID, spanID, generation); err != nil {
+			writeError(writer, http.StatusConflict, err)
+			return
+		}
+		if input.TraceID != "" {
+			record, exists := s.services.Evidence.Record(input.TraceID)
+			if !exists {
+				writeJSON(writer, http.StatusNotFound, ErrorResponse{Error: "referenced OTDR scan not found in evidence ledger"})
+				return
+			}
+			if record.Generation != generation || record.SpanID != spanID {
+				writeJSON(writer, http.StatusConflict, ErrorResponse{Error: "peer scan belongs to a different topology generation"})
+				return
+			}
+		}
 		pair := s.services.Correlator.Add(otdr.Evidence{
 			IncidentID: incidentID, StationID: input.StationID, TraceID: input.TraceID,
 			DistanceKM: input.DistanceKM, ObservedAt: s.services.Clock.Now(),
