@@ -21,6 +21,10 @@ func (s *Server) addAcceptanceProof(writer http.ResponseWriter, request *http.Re
 		ID: s.services.IDs.New("proof"), Direction: input.Direction, Passed: input.Passed,
 		LossDB: input.LossDB, Message: input.Message, MeasuredAt: s.services.Clock.Now().UTC(),
 	}
+	// Capture the generation before AddProof: a completing proof restores the
+	// route, which advances the topology generation, and this proof belongs to
+	// the generation it was measured against.
+	generation, genErr := s.services.Topology.Generation(spanID)
 	result, err := s.services.Acceptance.AddProof(request.Context(), input.AcceptanceID, spanID, proof)
 	if err != nil {
 		writeError(writer, http.StatusConflict, err)
@@ -29,6 +33,17 @@ func (s *Server) addAcceptanceProof(writer http.ResponseWriter, request *http.Re
 	if err := s.services.Persist("repair-acceptance", input.AcceptanceID, result); err != nil {
 		writeError(writer, http.StatusInternalServerError, err)
 		return
+	}
+	if genErr == nil {
+		chains, linkErr := s.services.Evidence.LinkProof(spanID, generation, proof)
+		if linkErr == nil {
+			for _, chain := range chains {
+				if err := s.services.Persist("evidence-chain", chain.ID, chain); err != nil {
+					writeError(writer, http.StatusInternalServerError, err)
+					return
+				}
+			}
+		}
 	}
 	status := http.StatusAccepted
 	if result.Restored {

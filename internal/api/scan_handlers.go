@@ -36,6 +36,15 @@ func (s *Server) startScan(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, http.StatusInternalServerError, err)
 		return
 	}
+	chain, err := s.services.Evidence.AddTrace(trace)
+	if err != nil {
+		writeError(writer, http.StatusInternalServerError, err)
+		return
+	}
+	if err := s.services.Persist("evidence-chain", chain.ID, chain); err != nil {
+		writeError(writer, http.StatusInternalServerError, err)
+		return
+	}
 	writeJSON(writer, http.StatusCreated, trace)
 }
 

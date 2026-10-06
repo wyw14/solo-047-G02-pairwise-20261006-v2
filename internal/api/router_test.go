@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wyw14/cry-103/internal/evidence"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -64,6 +65,7 @@ func testServer(t *testing.T) *Server {
 		Spans: map[string]*span.Span{"S3": target}, Routes: map[string]*route.Route{"R-S3": path},
 		Repeaters: map[string]*repeater.Repeater{"R07": repeaterAsset}, Topology: registry,
 		OTDR:        otdr.NewSessionService(registry, landing.NewScanner(registry, 0), ids, clock.Now),
+		Evidence:    evidence.NewStore(evidence.DefaultThresholds(), ids),
 		Switchovers: switchover.NewSessionService(drainer, activator, ids, clock.Now, time.Second),
 		Permits:     permitService, Receipts: receipts, Acceptance: acceptance,
 		Telemetry: telemetry.NewIngestor(repository, clock.Now, projector), TelemetryRepository: repository,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/wyw14/cry-103/internal/api"
+	"github.com/wyw14/cry-103/internal/evidence"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -65,6 +66,7 @@ func buildServices(cfg config) (*api.Services, error) {
 
 	scanner := landing.NewScanner(topologies, 2*time.Millisecond)
 	otdrService := otdr.NewSessionService(topologies, scanner, ids, now)
+	evidenceStore := evidence.NewStore(evidence.DefaultThresholds(), ids)
 	drainer := route.NewDrainer(4 * time.Millisecond)
 	activator := route.NewActivator(topologies)
 	switchovers := switchover.NewSessionService(drainer, activator, ids, now, 25*time.Millisecond)
@@ -117,7 +119,7 @@ func buildServices(cfg config) (*api.Services, error) {
 		Clock: clock, IDs: ids, Journal: journal,
 		Spans: map[string]*span.Span{"S3": spanS3}, Routes: map[string]*route.Route{"R-S3": routeS3},
 		Repeaters: map[string]*repeater.Repeater{"R07": repeaterR07}, Topology: topologies,
-		OTDR: otdrService, Switchovers: switchovers, Permits: permits, Receipts: receipts,
+		OTDR: otdrService, Evidence: evidenceStore, Switchovers: switchovers, Permits: permits, Receipts: receipts,
 		Acceptance: acceptance, Telemetry: ingestor, TelemetryRepository: telemetryRepository, Admission: admission,
 		Classifier: incident.NewClassifier(), Correlator: otdr.NewCorrelator(), Health: health, Station: station,
 		WetPlantTests: wetPlantTests, Ramps: ramps, Assets: assets,
